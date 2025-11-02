@@ -27,8 +27,5 @@
     "htmlparser": "^1.7.7",
     "multer": "^2.0.2",
     "uuid": "^13.0.0"
-  },
-  "engines": {
-    "node": "16.x"
   }
 }
