@@ -10,7 +10,6 @@ const client = new Client({
   intents: [
     Intents.FLAGS.GUILDS,
     Intents.FLAGS.GUILD_MESSAGES,
-    Intents.FLAGS.MESSAGE_CONTENT,
     Intents.FLAGS.DIRECT_MESSAGES,
   ],
   partials: ["CHANNEL"],
