@@ -597,9 +597,9 @@ client.on("messageCreate", async (message) => {
 
       const channel = await client.channels.fetch("1304895353937592361");
       if (channel) {
-        channel.send(
+        /*channel.send(
           `✅ Item ${itemid} (${item.title}) by ${item.username} has been deleted by moderator ${message.author.tag}.`
-        );
+        );*/
       }
 
       return message.reply({
