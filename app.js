@@ -495,10 +495,10 @@ client.on("messageCreate", async (message) => {
           ) {
             textrest = "";
           }
-          channel.send(
+          /*channel.send(
             `✅ ${item.username}'s ${item.title} has been successfully verified by moderator ${message.author.tag}!` +
               textrest
-          );
+          );*/
         }
 
         // Send success reply to the user
