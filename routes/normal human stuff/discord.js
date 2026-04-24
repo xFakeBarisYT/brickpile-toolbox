@@ -27,7 +27,7 @@ client.once("ready", () => {
 const prefix = "!";
 //731219953499504722
 async function sendMessageToOwner(messageContent) {
-  const ownerId = "731219953499504722"; // Replace this with your Discord user ID
+  const ownerId = process.env.Owner_ID; // Replace this with your Discord user ID
   try {
     const user = await client.users.fetch(ownerId);
     await user.send(messageContent);
@@ -86,7 +86,7 @@ client.on("messageCreate", async (message) => {
       const userId = message.author.id;
 
       // Check if the user has permission (e.g., specific user ID)
-      if (userId === "731219953499504722") {
+      if (userId === process.env.Owner_ID) {
         // Replace with the actual ID
 
         // Ensure the user provides an ID as an argument
@@ -140,7 +140,7 @@ client.on("messageCreate", async (message) => {
 
         // Fetch the channel to send the success message
         // revert 1304895353937592361 after testing
-        const channel = await client.channels.fetch("1304895353937592361");
+        const channel = await client.channels.fetch(process.env.Channel_ID);
         if (channel) {
           var textrest = ` This is the ${itemid}th item`;
           if (
@@ -185,7 +185,7 @@ client.on("messageCreate", async (message) => {
     
       if (command === "scriptdelete" || command === "brkdelete") {
       const userId = message.author.id;
-      if (userId !== "731219953499504722") {
+      if (userId !== process.env.Owner_ID) {
         return message.reply({
           content: "❌ You do not have permission to delete items.",
           ephemeral: true,
@@ -264,7 +264,7 @@ client.on("messageCreate", async (message) => {
         });
       }
 
-      const channel = await client.channels.fetch("1304895353937592361");
+      const channel = await client.channels.fetch(process.env.Channel_ID);
       if (channel) {
         /*channel.send(
           `✅ Item ${itemid} (${item.title}) by ${item.username} has been deleted by moderator ${message.author.tag}.`

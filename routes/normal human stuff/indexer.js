@@ -3,6 +3,8 @@ const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 const { createClient } = require("@supabase/supabase-js");
+const { Readable } = require("stream");
+//require("dotenv").config();
 
 const indexrouter = express.Router();
 
@@ -22,12 +24,13 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
 
+// Get metadata for verified BRK files - API endpoint for toolbox client
 indexrouter.get("/read", async (req, res) => {
   const { title, index = 0 } = req.query;
   const pageSize = 18;
   const offset = index * pageSize;
 
-  let query = supabase.from("brk_files").select("*").eq("verified", true); // Add the `verified` condition here
+  let query = supabase.from("brk_files").select("*").eq("verified", true);
 
   if (title) {
     query = query.or(`title.ilike.%${title}%,description.ilike.%${title}%`);
@@ -44,95 +47,93 @@ indexrouter.get("/read", async (req, res) => {
   }
 
   try {
-    // Fetch the file content for each item and replace `file_url` with the actual file content
-    const dataWithFileContent = await Promise.all(
-      data.map(async (item) => {
-        // Extract the relative path from the file_url
-        //maybe revert to const filePath = item.file_url.replace(process.env.StoragePath, ""); after testing
-        const filePath = item.file_url.split("/").pop();
+    // Return metadata - no direct Supabase URLs, only IDs
+    const responseData = data.map(item => ({
+      id: item.id,
+      username: item.username,
+      title: item.title,
+      description: item.description,
+      upload_date: item.upload_date,
+      has_thumbnail: !!item.thumbnail_url
+    }));
 
-        const { data: fileData, error: fileError } = await supabase.storage
-          .from("brk-files") // Name of your actual bucket
-          .download(filePath); // Use the relative file path
-
-        if (fileError) {
-          console.error(
-            `Failed to download file at ${item.file_url}:`,
-            fileError
-          );
-          throw new Error(`Failed to download file at ${item.file_url}`);
-        }
-
-        // Convert file data to text or another format as needed
-        const fileContent = await fileData.text();
-        return {
-          ...item,
-          file_url: fileContent, // Replace `file_url` with the content of the file
-        };
-      })
-    );
-
-    res.json(dataWithFileContent);
+    res.json(responseData);
   } catch (fetchError) {
     console.error(fetchError);
-    res.status(500).send("Error fetching file contents");
+    res.status(500).send("Error fetching file metadata");
   }
 });
 
-indexrouter.get("/readscript", async (req, res) => {
-  const { title, index = 0 } = req.query;
-  const pageSize = 18;
-  const offset = index * pageSize;
+// Secure thumbnail endpoint - serves thumbnails via backend
+indexrouter.get("/thumbnail/:id", async (req, res) => {
+  const { id } = req.params;
 
-  let query = supabase.from("script_files").select("*").eq("verified", true); // Add the `verified` condition here
+  const { data, error } = await supabase
+    .from("brk_files")
+    .select("thumbnail_url")
+    .eq("id", id)
+    .eq("verified", true)
+    .single();
 
-  if (title) {
-    query = query.or(`title.ilike.%${title}%,description.ilike.%${title}%`);
-  }
-  query = query
-    .order("upload_date", { ascending: false })
-    .range(offset, offset + pageSize - 1);
-
-  const { data, error } = await query;
-  console.log(data);
-  if (error) {
-    console.error(error);
-    return res.status(500).send(error.message);
+  if (error || !data?.thumbnail_url) {
+    return res.status(404).send("Thumbnail not found");
   }
 
   try {
-    // Fetch the file content for each item and replace `file_url` with the actual file content
-    const dataWithFileContent = await Promise.all(
-      data.map(async (item) => {
-        // Extract the relative path from the file_url
-        //maybe revert to const filePath = item.file_url.replace(process.env.StoragePath, ""); after testing
-        const filePath = item.file_url.split("/").pop();
+    const response = await fetch(data.thumbnail_url);
 
-        const { data: fileData, error: fileError } = await supabase.storage
-          .from("brk-files") // Name of your actual bucket
-          .download(filePath); // Use the relative file path
+    if (!response.ok) {
+      return res.status(500).send("Failed to fetch thumbnail");
+    }
 
-        if (fileError) {
-          console.error(
-            `Failed to download file at ${item.file_url}:`,
-            fileError
-          );
-          throw new Error(`Failed to download file at ${item.file_url}`);
-        }
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
 
-        // Convert file data to text or another format as needed
-        const fileContent = await fileData.text();
-        return {
-          ...item,
-          file_url: fileContent, // Replace `file_url` with the content of the file
-        };
-      })
+    // 🔥 convert Web Stream → Node Stream
+    const nodeStream = Readable.fromWeb(response.body);
+    nodeStream.pipe(res);
+
+  } catch (err) {
+    console.error("Proxy error:", err);
+    res.status(500).send("Error loading thumbnail");
+  }
+});
+
+// Secure download endpoint - file is not loaded into URL
+indexrouter.get("/download/:id", async (req, res) => {
+  const { id } = req.params;
+
+  const { data, error } = await supabase
+    .from("brk_files")
+    .select("file_url, title")
+    .eq("id", id)
+    .eq("verified", true)
+    .single();
+
+  if (error || !data?.file_url) {
+    return res.status(404).send("File not found or not verified");
+  }
+
+  try {
+    const response = await fetch(data.file_url);
+
+    if (!response.ok) {
+      return res.status(500).send("Failed to fetch file");
+    }
+
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${data.title}.brk"`
     );
+    res.setHeader("Cache-Control", "no-store");
 
-    res.json(dataWithFileContent);
-  } catch (fetchError) {
-    console.error(fetchError);
-    res.status(500).send("Error fetching file contents");
+    const nodeStream = Readable.fromWeb(response.body);
+    nodeStream.pipe(res);
+
+  } catch (err) {
+    console.error("Download proxy error:", err);
+    res.status(500).send("Error downloading file");
   }
 });
 

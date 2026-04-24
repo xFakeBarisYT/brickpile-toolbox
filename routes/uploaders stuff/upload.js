@@ -4,6 +4,7 @@ const multer = require("multer");
 const { createClient } = require("@supabase/supabase-js");
 const { v4: uuidv4 } = require("uuid");
 const { router, client, sendUserData, sendMessageToOwner } = require('../normal human stuff/discord.js');
+const { generateBrkThumbnail } = require('./thumbnail-generator');
 //require("dotenv").config();
 
 const uploadrouter = express.Router();
@@ -74,58 +75,92 @@ uploadrouter.post("/upload", upload.single("brkFile"), async (req, res) => {
   }
 
   const fileName = `${uuidv4()}-${dataa.originalname}`;
+  const thumbnailFileName = `thumb-${fileName.replace('.brk', '.png')}`;
 
-  // Upload the file to Supabase Storage
-  const { data: uploadData, error: uploadError } = await supabase.storage
-    .from("brk-files")
-    .upload(fileName, dataa.buffer, {
-      contentType: dataa.mimetype,
-    });
+  try {
+    // Generate thumbnail from BRK content
+    let thumbnailBuffer;
+    try {
+      const brkContent = dataa.buffer.toString('utf-8');
+      thumbnailBuffer = await generateBrkThumbnail(brkContent, 256, 256);
+    } catch (thumbError) {
+      console.error("Thumbnail generation failed, continuing without thumbnail:", thumbError);
+      thumbnailBuffer = null;
+    }
 
-  if (uploadError) {
-    console.error(uploadError);
-    return res.status(500).send(uploadError.message);
-  }
+    // Upload the file to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("brk-files")
+      .upload(fileName, dataa.buffer, {
+        contentType: dataa.mimetype,
+      });
 
-  // Get the public URL for the uploaded file
-  const { data } = supabase.storage.from("brk-files").getPublicUrl(fileName);
+    if (uploadError) {
+      console.error(uploadError);
+      return res.status(500).send(uploadError.message);
+    }
 
-  // Insert metadata into the Supabase `brk_files` table
-  const { data: insertData, error: dbError } = await supabase
-    .from("brk_files")
-    .insert([
-      {
-        username,
-        title,
-        description,
-        file_url: data.publicUrl,
-        upload_date: new Date(),
-        verified: false,
-      },
-    ])
-    .select("id");
+    // Upload thumbnail if generated successfully
+    let thumbnailUrl = null;
+    if (thumbnailBuffer) {
+      const { error: thumbUploadError } = await supabase.storage
+        .from("brk-files")
+        .upload(thumbnailFileName, thumbnailBuffer, {
+          contentType: "image/png",
+        });
 
-  if (dbError) {
-    console.error(dbError);
-    return res.status(500).send(dbError.message);
-  }
+      if (!thumbUploadError) {
+        const { data: thumbData } = supabase.storage
+          .from("brk-files")
+          .getPublicUrl(thumbnailFileName);
+        thumbnailUrl = thumbData.publicUrl;
+      }
+    }
 
-  // Ensure insertData is not null, is an array, and has at least one element
-  if (insertData && Array.isArray(insertData) && insertData.length > 0) {
-    const insertedId = insertData[0].id; // Access the ID of the first inserted row
-    sendMessageToOwner(
-      username +
-        " Uploaded model \nName: " +
-        title +
-        "\nId: (" +
-        insertedId +
-        ")\n" +
-        data.publicUrl
+    // Get the public URL for the uploaded file
+    const { data } = supabase.storage.from("brk-files").getPublicUrl(fileName);
+
+    // Insert metadata into the Supabase `brk_files` table
+    const { data: insertData, error: dbError } = await supabase
+      .from("brk_files")
+      .insert([
+        {
+          username,
+          title,
+          description,
+          file_url: data.publicUrl,
+          thumbnail_url: thumbnailUrl,
+          upload_date: new Date(),
+          verified: false,
+        },
+      ])
+      .select("id");
+
+    if (dbError) {
+      console.error(dbError);
+      return res.status(500).send(dbError.message);
+    }
+
+    // Ensure insertData is not null, is an array, and has at least one element
+    if (insertData && Array.isArray(insertData) && insertData.length > 0) {
+      const insertedId = insertData[0].id;
+      sendMessageToOwner(
+        username +
+          " Uploaded model \nName: " +
+          title +
+          "\nId: (" +
+          insertedId +
+          ")\n" +
+          data.publicUrl
+      );
+    }
+    res.send(
+      "File uploaded and metadata saved. Wait until it's verified by moderators"
     );
+  } catch (error) {
+    console.error("Upload error:", error);
+    return res.status(500).send("An error occurred during upload");
   }
-  res.send(
-    "File uploaded and metadata saved. Wait until it's verified by moderators"
-  );
 });
 
 uploadrouter.post("/uploadscript", async (req, res) => {
