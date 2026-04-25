@@ -78,6 +78,7 @@ indexrouter.get("/thumbnail/:id", async (req, res) => {
   if (error || !data?.thumbnail_url) {
     const response = await fetch(process.env.BASE_URL+'/download/'+id);
     const text = await response.text();
+    console.log(text);
     // Generate thumbnail from BRK content
     let thumbnailBuffer;
     try {
