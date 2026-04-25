@@ -74,7 +74,7 @@ indexrouter.get("/thumbnail/:id", async (req, res) => {
     .eq("id", id)
     .eq("verified", true)
     .single();
-
+  let thumbnailUrl = data.thumbnail_url;
   if (error || !data?.thumbnail_url) {
     // Generate thumbnail from BRK content
     let thumbnailBuffer;
@@ -86,7 +86,7 @@ indexrouter.get("/thumbnail/:id", async (req, res) => {
       thumbnailBuffer = null;
     }
     // Upload thumbnail if generated successfully
-    let thumbnailUrl = null;
+    
     if (thumbnailBuffer) {
       const { error: thumbUploadError } = await supabase.storage
         .from("brk-files")
@@ -98,7 +98,7 @@ indexrouter.get("/thumbnail/:id", async (req, res) => {
         const { data: thumbData } = supabase.storage
           .from("brk-files")
           .getPublicUrl(thumbnailFileName);
-        data.thumbnail_url = thumbData.publicUrl;
+        thumbnailUrl = thumbData.publicUrl;
       }
       if (!thumbnailUrl) {
         return res.status(404).send("Thumbnail not found");
@@ -107,7 +107,7 @@ indexrouter.get("/thumbnail/:id", async (req, res) => {
   }
 
   try {
-    const response = await fetch(data.thumbnail_url);
+    const response = await fetch(thumbnailUrl);
 
     if (!response.ok) {
       return res.status(500).send("Failed to fetch thumbnail");
