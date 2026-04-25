@@ -98,7 +98,7 @@ indexrouter.get("/thumbnail/:id", async (req, res) => {
         const { data: thumbData } = supabase.storage
           .from("brk-files")
           .getPublicUrl(thumbnailFileName);
-        thumbnailUrl = thumbData.publicUrl;
+        data.thumbnail_url = thumbData.publicUrl;
       }
       if (!thumbnailUrl) {
         return res.status(404).send("Thumbnail not found");
