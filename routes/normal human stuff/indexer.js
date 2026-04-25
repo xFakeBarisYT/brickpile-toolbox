@@ -76,10 +76,12 @@ indexrouter.get("/thumbnail/:id", async (req, res) => {
     .single();
   let thumbnailUrl = data.thumbnail_url;
   if (error || !data?.thumbnail_url) {
+    const response = await fetch(process.env.BASE_URL+'/download/'+id);
+    const text = await response.text();
     // Generate thumbnail from BRK content
     let thumbnailBuffer;
     try {
-      const brkContent = dataa.buffer.toString('utf-8');
+      const brkContent = text;
       thumbnailBuffer = await generateBrkThumbnail(brkContent, 256, 256);
     } catch (thumbError) {
       console.error("Thumbnail generation failed, continuing without thumbnail:", thumbError);
