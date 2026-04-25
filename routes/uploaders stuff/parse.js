@@ -42,9 +42,9 @@ function parseBrkSafe(data) {
 
       const brick = {
         position: {
-          x: safeNum(x)+safeNum(sx, 1),
-          y: safeNum(y)+safeNum(sy, 1),
-          z: safeNum(z)+safeNum(sz, 1),
+          x: safeNum(x)+safeNum(sx, 1)/2,
+          y: safeNum(y)+safeNum(sy, 1)/2,
+          z: safeNum(z)+safeNum(sz, 1)/2,
         },
         scale: {
           x: safeNum(sx, 1),
