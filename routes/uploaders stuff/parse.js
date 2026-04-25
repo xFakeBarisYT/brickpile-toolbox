@@ -38,13 +38,13 @@ function parseBrkSafe(data) {
     // NEW BRICK
     // =========================
     if (DATA.length === 10 && !DATA[0].startsWith(">")) {
-      const [x, y, z, sx, sy, sz, r, g, b, vis] = DATA;
+      const [x, z, y, sx, sz, sy, r, g, b, vis] = DATA;
 
       const brick = {
         position: {
-          x: safeNum(x),
-          y: safeNum(y),
-          z: safeNum(z),
+          x: safeNum(x)+safeNum(sx, 1),
+          y: safeNum(y)+safeNum(sy, 1),
+          z: safeNum(z)+safeNum(sz, 1),
         },
         scale: {
           x: safeNum(sx, 1),
