@@ -1,4 +1,3 @@
-const fs = require("fs");
 
 function safeNum(v, fallback = 0) {
   const n = Number(v);

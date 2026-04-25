@@ -76,7 +76,34 @@ indexrouter.get("/thumbnail/:id", async (req, res) => {
     .single();
 
   if (error || !data?.thumbnail_url) {
-    return res.status(404).send("Thumbnail not found");
+    // Generate thumbnail from BRK content
+    let thumbnailBuffer;
+    try {
+      const brkContent = dataa.buffer.toString('utf-8');
+      thumbnailBuffer = await generateBrkThumbnail(brkContent, 256, 256);
+    } catch (thumbError) {
+      console.error("Thumbnail generation failed, continuing without thumbnail:", thumbError);
+      thumbnailBuffer = null;
+    }
+    // Upload thumbnail if generated successfully
+    let thumbnailUrl = null;
+    if (thumbnailBuffer) {
+      const { error: thumbUploadError } = await supabase.storage
+        .from("brk-files")
+        .upload(thumbnailFileName, thumbnailBuffer, {
+          contentType: "image/png",
+        });
+
+      if (!thumbUploadError) {
+        const { data: thumbData } = supabase.storage
+          .from("brk-files")
+          .getPublicUrl(thumbnailFileName);
+        thumbnailUrl = thumbData.publicUrl;
+      }
+      if (!thumbnailUrl) {
+        return res.status(404).send("Thumbnail not found");
+      }
+    }
   }
 
   try {
